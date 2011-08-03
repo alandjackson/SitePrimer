@@ -1,0 +1,13 @@
+Site Primer
+
+Walks a website and prints out all urls and the time to retrieve the page.
+
+Usage:
+The program just takes one argument, the site to crawl/test.
+
+SitePrimer.exe [site to test]
+
+Notes:
+The crawler will run the site through a regex that replaces all numbers with a generic
+id tag so each page with variations on a number are not crawled.  The point of the
+crawler is to hit each page that runs unique code.
