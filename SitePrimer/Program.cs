@@ -11,14 +11,24 @@ namespace SitePrimer
 {
     class Program
     {
+        static bool _writeToEventLog;
+
         static void Main(string[] args)
         {
-            AggregateNumberedPaths = true;
-            PatternsFound = new string[] { "/"}.ToList();
+            try
+            {
+                Run(args);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: " + e.ToString());
+            }
+        }
 
-            //RootUrl = "http://localhost:52848";
-            //RootUrl = "http://ubuntu:3000";
-            //RootUrl = "http://watermonitordev";
+        private static void Run(string[] args)
+        {
+            AggregateNumberedPaths = true;
+            PatternsFound = new string[] { "/" }.ToList();
 
             if (args.Length > 0)
             {
@@ -26,10 +36,14 @@ namespace SitePrimer
             }
             else
             {
-                Console.WriteLine("Usage: SitePrimer.exe [site]");
-                Console.ReadLine();
+                Console.WriteLine("Usage: SitePrimer.exe [site] <options>");
+                Console.WriteLine("       --nocrawl               Don't crawl the site, just get the root page");
+                Console.WriteLine("       --eventlog              Write messages to the system event log");
                 return;
             }
+
+            bool crawlLinks = !args.Contains("--nocrawl");
+            _writeToEventLog = args.Contains("--eventlog");
 
             //Queue<string> 
 
@@ -37,7 +51,7 @@ namespace SitePrimer
             urlsToScan.Enqueue("/");
 
 
-            using (WebClient client = new WebClient() { Proxy = null, UseDefaultCredentials=true })
+            using (WebClient client = new WebClient() { Proxy = null, UseDefaultCredentials = true })
             {
                 while (urlsToScan.Count > 0)
                 {
@@ -55,17 +69,20 @@ namespace SitePrimer
                         if (displayUrl.Length > 79)
                             displayUrl = fullUrl.Substring(0, 76) + "...";
 
-                        Console.WriteLine(displayUrl.PadRight(80) + sw.Elapsed);
+                        WriteMessage(displayUrl.PadRight(80) + sw.Elapsed);
 
-                        foreach (string link in GetUrls(html).Where(link => link.StartsWith("/") && NotFoundYet(link)))
+                        if (crawlLinks)
                         {
-                            MarkFound(link);
-                            urlsToScan.Enqueue(link);
+                            foreach (string link in GetUrls(html).Where(link => link.StartsWith("/") && NotFoundYet(link)))
+                            {
+                                MarkFound(link);
+                                urlsToScan.Enqueue(link);
+                            }
                         }
                     }
                     catch (WebException e)
                     {
-                        Console.WriteLine(fullUrl.PadRight(80) + ((HttpWebResponse)e.Response).StatusCode);
+                        WriteMessage(fullUrl.PadRight(80) + ((HttpWebResponse)e.Response).StatusCode);
                     }
 
                 }
@@ -73,6 +90,25 @@ namespace SitePrimer
             }
         }
 
+        public static void WriteMessage(string message)
+        {
+            Console.WriteLine(message);
+            if (_writeToEventLog)
+                WriteToEventLog(message);
+        }
+
+        private static void WriteToEventLog(string message)
+        {
+            string source = "SitePrimer";
+            EventLog elog = new EventLog();
+            if (!EventLog.SourceExists(source))
+            {
+                EventLog.CreateEventSource(source, "Application");
+            }
+            elog.Source = source;
+            elog.EnableRaisingEvents = true;
+            elog.WriteEntry(message);
+        }
 
         static bool AggregateNumberedPaths { get; set; }
         static List<string> PatternsFound { get; set; }
