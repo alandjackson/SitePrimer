@@ -6,6 +6,7 @@ using System.Net;
 using System.Diagnostics;
 using HtmlAgilityPack;
 using System.Text.RegularExpressions;
+using System.Security;
 
 namespace SitePrimer
 {
@@ -30,6 +31,12 @@ namespace SitePrimer
             AggregateNumberedPaths = true;
             PatternsFound = new string[] { "/" }.ToList();
 
+            if (args.Length > 0 && args[0] == "--install")
+            {
+                CreateEventSource();
+                Console.WriteLine("Event Source Created");
+                return;
+            }
             if (args.Length > 0)
             {
                 RootUrl = args[0];
@@ -39,13 +46,12 @@ namespace SitePrimer
                 Console.WriteLine("Usage: SitePrimer.exe [site] <options>");
                 Console.WriteLine("       --nocrawl               Don't crawl the site, just get the root page");
                 Console.WriteLine("       --eventlog              Write messages to the system event log");
+                Console.WriteLine("Install: SitePrimer.exe --install (creates system event log)");
                 return;
             }
 
             bool crawlLinks = !args.Contains("--nocrawl");
             _writeToEventLog = args.Contains("--eventlog");
-
-            //Queue<string> 
 
             Queue<string> urlsToScan = new Queue<string>();
             urlsToScan.Enqueue("/");
@@ -101,13 +107,19 @@ namespace SitePrimer
         {
             string source = "SitePrimer";
             EventLog elog = new EventLog();
+
+            elog.Source = source;
+            elog.EnableRaisingEvents = true;
+            elog.WriteEntry(message);
+        }
+
+        private static void CreateEventSource()
+        {
+            string source = "SitePrimer";
             if (!EventLog.SourceExists(source))
             {
                 EventLog.CreateEventSource(source, "Application");
             }
-            elog.Source = source;
-            elog.EnableRaisingEvents = true;
-            elog.WriteEntry(message);
         }
 
         static bool AggregateNumberedPaths { get; set; }
